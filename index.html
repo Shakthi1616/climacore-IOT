@@ -1,0 +1,1178 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>ClimaCore Dashboard</title>
+<link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Rajdhani:wght@300;400;500;600;700&display=swap" rel="stylesheet" />
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
+<style>
+  /* =============================================
+     DESIGN TOKENS & RESET
+  ============================================= */
+  :root {
+    --bg-base:        #0a0f1e;
+    --bg-surface:     #0d1526;
+    --bg-card:        #111d35;
+    --bg-card-hover:  #152240;
+    --border:         rgba(34, 197, 94, 0.12);
+    --border-bright:  rgba(34, 197, 94, 0.35);
+    --accent:         #22c55e;
+    --accent-dim:     rgba(34, 197, 94, 0.15);
+    --accent-glow:    rgba(34, 197, 94, 0.4);
+    --blue:           #38bdf8;
+    --blue-dim:       rgba(56, 189, 248, 0.15);
+    --yellow:         #facc15;
+    --yellow-dim:     rgba(250, 204, 21, 0.15);
+    --red:            #f87171;
+    --red-dim:        rgba(248, 113, 113, 0.15);
+    --text-primary:   #e2e8f0;
+    --text-secondary: #64748b;
+    --text-muted:     #334155;
+    --font-display:   'Rajdhani', sans-serif;
+    --font-mono:      'Space Mono', monospace;
+    --radius:         14px;
+    --radius-sm:      8px;
+  }
+
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  html { font-size: 16px; scroll-behavior: smooth; }
+
+  body {
+    background: var(--bg-base);
+    color: var(--text-primary);
+    font-family: var(--font-display);
+    min-height: 100vh;
+    overflow-x: hidden;
+    /* Subtle grid texture */
+    background-image:
+      linear-gradient(rgba(34,197,94,0.03) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(34,197,94,0.03) 1px, transparent 1px);
+    background-size: 40px 40px;
+  }
+
+  /* =============================================
+     TOP NAVIGATION BAR
+  ============================================= */
+  .topbar {
+    position: sticky;
+    top: 0;
+    z-index: 100;
+    background: rgba(10,15,30,0.92);
+    backdrop-filter: blur(16px);
+    border-bottom: 1px solid var(--border);
+    padding: 0 28px;
+    height: 64px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+  }
+
+  .topbar-left {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+  }
+
+  .logo-icon {
+    width: 38px; height: 38px;
+    background: var(--accent-dim);
+    border: 1px solid var(--border-bright);
+    border-radius: var(--radius-sm);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 18px;
+  }
+
+  .logo-text {
+    font-family: var(--font-display);
+    font-weight: 700;
+    font-size: 20px;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    color: var(--text-primary);
+  }
+
+  .logo-text span { color: var(--accent); }
+
+  .topbar-right {
+    display: flex;
+    align-items: center;
+    gap: 20px;
+  }
+
+  /* Connection status pill */
+  .conn-pill {
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: 100px;
+    padding: 5px 14px;
+    font-family: var(--font-mono);
+    font-size: 11px;
+    letter-spacing: 0.5px;
+    transition: border-color 0.3s, background 0.3s;
+  }
+
+  .conn-dot {
+    width: 8px; height: 8px;
+    border-radius: 50%;
+    background: var(--text-muted);
+    transition: background 0.3s, box-shadow 0.3s;
+  }
+
+  .conn-pill.connected {
+    border-color: rgba(34,197,94,0.4);
+    background: rgba(34,197,94,0.08);
+  }
+  .conn-pill.connected .conn-dot {
+    background: var(--accent);
+    box-shadow: 0 0 6px var(--accent-glow);
+    animation: pulse-dot 2s infinite;
+  }
+  .conn-pill.disconnected {
+    border-color: rgba(248,113,113,0.4);
+    background: rgba(248,113,113,0.08);
+  }
+  .conn-pill.disconnected .conn-dot {
+    background: var(--red);
+    box-shadow: 0 0 6px rgba(248,113,113,0.5);
+  }
+
+  @keyframes pulse-dot {
+    0%,100% { opacity:1; transform:scale(1); }
+    50% { opacity:0.6; transform:scale(0.85); }
+  }
+
+  .clock-block {
+    text-align: right;
+  }
+  .clock-time {
+    font-family: var(--font-mono);
+    font-size: 15px;
+    font-weight: 700;
+    color: var(--accent);
+    letter-spacing: 1px;
+  }
+  .clock-date {
+    font-family: var(--font-mono);
+    font-size: 10px;
+    color: var(--text-secondary);
+    letter-spacing: 0.5px;
+  }
+
+  /* =============================================
+     MAIN LAYOUT
+  ============================================= */
+  .main {
+    max-width: 1440px;
+    margin: 0 auto;
+    padding: 28px 28px 48px;
+  }
+
+  .section-label {
+    font-family: var(--font-mono);
+    font-size: 10px;
+    letter-spacing: 3px;
+    text-transform: uppercase;
+    color: var(--text-secondary);
+    margin-bottom: 14px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+  .section-label::after {
+    content: '';
+    flex: 1;
+    height: 1px;
+    background: var(--border);
+  }
+
+  /* =============================================
+     SENSOR CARDS GRID
+  ============================================= */
+  .cards-grid {
+    display: grid;
+    grid-template-columns: repeat(5, 1fr);
+    gap: 16px;
+    margin-bottom: 28px;
+  }
+
+  .card {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 20px;
+    position: relative;
+    overflow: hidden;
+    cursor: default;
+    transition: border-color 0.3s, background 0.3s, transform 0.2s;
+  }
+  .card:hover {
+    border-color: var(--border-bright);
+    background: var(--bg-card-hover);
+    transform: translateY(-2px);
+  }
+
+  /* Subtle top accent line */
+  .card::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 20%; right: 20%;
+    height: 1px;
+    background: linear-gradient(90deg, transparent, var(--card-accent, var(--accent)), transparent);
+    opacity: 0.6;
+  }
+
+  /* Corner bracket decorations */
+  .card::after {
+    content: '';
+    position: absolute;
+    top: 10px; right: 10px;
+    width: 12px; height: 12px;
+    border-top: 1px solid var(--card-accent, var(--accent));
+    border-right: 1px solid var(--card-accent, var(--accent));
+    opacity: 0.3;
+  }
+
+  .card-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 14px;
+  }
+
+  .card-icon {
+    width: 36px; height: 36px;
+    border-radius: var(--radius-sm);
+    background: var(--accent-dim);
+    border: 1px solid var(--border-bright);
+    display: flex; align-items: center; justify-content: center;
+    font-size: 16px;
+    flex-shrink: 0;
+  }
+
+  .card-tag {
+    font-family: var(--font-mono);
+    font-size: 9px;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    color: var(--text-secondary);
+    background: var(--bg-surface);
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    padding: 2px 7px;
+  }
+
+  .card-label {
+    font-family: var(--font-mono);
+    font-size: 10px;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    color: var(--text-secondary);
+    margin-bottom: 6px;
+  }
+
+  .card-value {
+    font-family: var(--font-display);
+    font-size: 42px;
+    font-weight: 700;
+    line-height: 1;
+    color: var(--text-primary);
+    letter-spacing: -1px;
+    transition: color 0.4s;
+  }
+
+  .card-unit {
+    font-size: 18px;
+    font-weight: 400;
+    color: var(--text-secondary);
+    margin-left: 2px;
+  }
+
+  .card-status {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    margin-top: 8px;
+    font-family: var(--font-mono);
+    font-size: 10px;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    padding: 3px 10px;
+    border-radius: 100px;
+    border: 1px solid currentColor;
+    opacity: 0.85;
+    transition: all 0.3s;
+  }
+  .status-good    { color: var(--accent); background: var(--accent-dim); }
+  .status-moderate{ color: var(--yellow); background: var(--yellow-dim); }
+  .status-poor    { color: var(--red);    background: var(--red-dim); }
+  .status-blue    { color: var(--blue);   background: var(--blue-dim); }
+
+  /* Progress bar */
+  .progress-track {
+    height: 4px;
+    background: var(--bg-surface);
+    border-radius: 100px;
+    margin-top: 10px;
+    overflow: hidden;
+  }
+  .progress-fill {
+    height: 100%;
+    border-radius: 100px;
+    background: var(--accent);
+    transition: width 0.6s cubic-bezier(0.34,1.56,0.64,1);
+    position: relative;
+  }
+  .progress-fill::after {
+    content: '';
+    position: absolute;
+    right: 0; top: 50%;
+    transform: translateY(-50%);
+    width: 6px; height: 6px;
+    border-radius: 50%;
+    background: inherit;
+    box-shadow: 0 0 6px currentColor;
+  }
+
+  /* Rain card specific */
+  .rain-card { --card-accent: var(--blue); }
+  .rain-card .card-icon { background: var(--blue-dim); border-color: rgba(56,189,248,0.35); }
+
+  /* Air card specific */
+  .air-card { --card-accent: var(--yellow); }
+  .air-card .card-icon { background: var(--yellow-dim); border-color: rgba(250,204,21,0.35); }
+
+  /* Pressure card */
+  .pressure-card { --card-accent: #a78bfa; }
+  .pressure-card .card-icon { background: rgba(167,139,250,0.1); border-color: rgba(167,139,250,0.35); }
+
+  /* =============================================
+     BOTTOM SECTION: CHART + GAUGE
+  ============================================= */
+  .bottom-grid {
+    display: grid;
+    grid-template-columns: 1fr 380px;
+    gap: 16px;
+  }
+
+  /* Chart panel */
+  .chart-panel {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 24px;
+  }
+
+  .panel-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 20px;
+  }
+
+  .panel-title {
+    font-family: var(--font-display);
+    font-size: 16px;
+    font-weight: 600;
+    letter-spacing: 1px;
+    color: var(--text-primary);
+  }
+
+  .chart-legend {
+    display: flex;
+    gap: 16px;
+  }
+  .legend-item {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-family: var(--font-mono);
+    font-size: 10px;
+    color: var(--text-secondary);
+    letter-spacing: 0.5px;
+  }
+  .legend-dot {
+    width: 8px; height: 8px;
+    border-radius: 50%;
+  }
+
+  .chart-wrap {
+    position: relative;
+    height: 240px;
+  }
+
+  /* =============================================
+     RAIN GAUGE PANEL
+  ============================================= */
+  .gauge-panel {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 24px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+  }
+
+  .gauge-wrap {
+    position: relative;
+    width: 220px;
+    height: 130px;
+    margin: 16px auto 8px;
+  }
+
+  .gauge-svg { width: 100%; height: 100%; overflow: visible; }
+
+  .gauge-center-text {
+    position: absolute;
+    bottom: 0; left: 50%;
+    transform: translateX(-50%);
+    text-align: center;
+  }
+  .gauge-percent {
+    font-family: var(--font-display);
+    font-size: 32px;
+    font-weight: 700;
+    line-height: 1;
+    color: var(--text-primary);
+    transition: color 0.4s;
+  }
+  .gauge-pct-unit {
+    font-size: 14px;
+    font-weight: 400;
+    color: var(--text-secondary);
+  }
+  .gauge-sublabel {
+    font-family: var(--font-mono);
+    font-size: 9px;
+    letter-spacing: 2px;
+    color: var(--text-secondary);
+    text-transform: uppercase;
+    margin-top: 2px;
+  }
+
+  .gauge-status-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-top: 14px;
+  }
+  .gauge-status-icon { font-size: 22px; }
+  .gauge-status-text {
+    font-family: var(--font-display);
+    font-size: 17px;
+    font-weight: 600;
+    letter-spacing: 1px;
+    transition: color 0.4s;
+  }
+
+  /* Mini stats below gauge */
+  .gauge-stats {
+    width: 100%;
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+    margin-top: 18px;
+  }
+  .gauge-stat {
+    background: var(--bg-surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    padding: 10px 12px;
+    text-align: center;
+  }
+  .gauge-stat-val {
+    font-family: var(--font-display);
+    font-size: 18px;
+    font-weight: 600;
+    color: var(--text-primary);
+  }
+  .gauge-stat-lbl {
+    font-family: var(--font-mono);
+    font-size: 9px;
+    letter-spacing: 1.5px;
+    color: var(--text-secondary);
+    text-transform: uppercase;
+    margin-top: 2px;
+  }
+
+  /* =============================================
+     ANIMATIONS
+  ============================================= */
+  @keyframes fadeSlideUp {
+    from { opacity: 0; transform: translateY(12px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+
+  @keyframes numFlash {
+    0%   { opacity: 1; }
+    30%  { opacity: 0.4; color: var(--accent); }
+    100% { opacity: 1; }
+  }
+
+  .val-update { animation: numFlash 0.5s ease; }
+
+  .card { animation: fadeSlideUp 0.5s ease both; }
+  .card:nth-child(1) { animation-delay: 0.05s; }
+  .card:nth-child(2) { animation-delay: 0.10s; }
+  .card:nth-child(3) { animation-delay: 0.15s; }
+  .card:nth-child(4) { animation-delay: 0.20s; }
+  .card:nth-child(5) { animation-delay: 0.25s; }
+
+  .chart-panel { animation: fadeSlideUp 0.5s 0.3s ease both; }
+  .gauge-panel  { animation: fadeSlideUp 0.5s 0.35s ease both; }
+
+  /* Scan-line overlay for techy feel */
+  body::after {
+    content: '';
+    position: fixed;
+    inset: 0;
+    pointer-events: none;
+    background: repeating-linear-gradient(
+      0deg,
+      rgba(0,0,0,0) 0px,
+      rgba(0,0,0,0) 2px,
+      rgba(0,0,0,0.04) 2px,
+      rgba(0,0,0,0.04) 4px
+    );
+    z-index: 9999;
+  }
+
+  /* =============================================
+     RESPONSIVE
+  ============================================= */
+  @media (max-width: 1280px) {
+    .cards-grid { grid-template-columns: repeat(3, 1fr); }
+  }
+
+  @media (max-width: 900px) {
+    .bottom-grid { grid-template-columns: 1fr; }
+    .gauge-panel { order: -1; }
+  }
+
+  @media (max-width: 640px) {
+    .main { padding: 16px 14px 40px; }
+    .topbar { padding: 0 14px; }
+    .cards-grid { grid-template-columns: 1fr 1fr; gap: 10px; }
+    .logo-text { font-size: 15px; }
+    .clock-block { display: none; }
+  }
+
+  @media (max-width: 420px) {
+    .cards-grid { grid-template-columns: 1fr; }
+  }
+
+  /* API config bar */
+  .config-bar {
+    background: var(--bg-card);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-sm);
+    padding: 10px 18px;
+    margin-bottom: 22px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    flex-wrap: wrap;
+  }
+  .config-bar label {
+    font-family: var(--font-mono);
+    font-size: 11px;
+    color: var(--text-secondary);
+    letter-spacing: 1px;
+    white-space: nowrap;
+  }
+  .config-bar input {
+    flex: 1;
+    min-width: 180px;
+    background: var(--bg-surface);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    color: var(--text-primary);
+    font-family: var(--font-mono);
+    font-size: 12px;
+    padding: 5px 10px;
+    outline: none;
+    transition: border-color 0.2s;
+  }
+  .config-bar input:focus { border-color: var(--border-bright); }
+  .config-btn {
+    background: var(--accent-dim);
+    border: 1px solid var(--border-bright);
+    color: var(--accent);
+    font-family: var(--font-mono);
+    font-size: 11px;
+    letter-spacing: 1px;
+    padding: 5px 14px;
+    border-radius: 6px;
+    cursor: pointer;
+    transition: background 0.2s;
+    white-space: nowrap;
+  }
+  .config-btn:hover { background: rgba(34,197,94,0.25); }
+</style>
+</head>
+<body>
+
+<!-- =============================================
+     TOP BAR
+============================================= -->
+<header class="topbar">
+  <div class="topbar-left">
+    <div class="logo-icon">🌐</div>
+    <div class="logo-text">Clima<span>Core</span></div>
+  </div>
+  <div class="topbar-right">
+    <div class="conn-pill disconnected" id="connPill">
+      <div class="conn-dot"></div>
+      <span id="connLabel">OFFLINE</span>
+    </div>
+    <div class="clock-block">
+      <div class="clock-time" id="clockTime">--:--:--</div>
+      <div class="clock-date" id="clockDate">--- --, ----</div>
+    </div>
+  </div>
+</header>
+
+<!-- =============================================
+     MAIN CONTENT
+============================================= -->
+<main class="main">
+
+  <!-- API Config Bar -->
+  <div class="config-bar">
+    <label>API ENDPOINT</label>
+    <input type="text" id="apiInput" value="http://172.20.10.4:3000/api/data" placeholder="http://172.20.X.X:3000/api/data" />
+    <button class="config-btn" onclick="applyEndpoint()">APPLY</button>
+    <button class="config-btn" onclick="loadDemo()" style="border-color:rgba(250,204,21,0.4);color:var(--yellow);background:var(--yellow-dim);">DEMO MODE</button>
+  </div>
+
+  <!-- Section label -->
+  <div class="section-label">Live Sensor Readings</div>
+
+  <!-- =============================================
+       SENSOR CARDS
+  ============================================= -->
+  <div class="cards-grid">
+
+    <!-- Temperature -->
+    <div class="card" id="tempCard">
+      <div class="card-header">
+        <div class="card-icon">🌡️</div>
+        <span class="card-tag">TEMP-01</span>
+      </div>
+      <div class="card-label">Temperature</div>
+      <div class="card-value" id="tempVal">--<span class="card-unit">°C</span></div>
+      <div class="card-status status-good" id="tempStatus">— NORMAL</div>
+    </div>
+
+    <!-- Humidity -->
+    <div class="card" id="humCard">
+      <div class="card-header">
+        <div class="card-icon">💧</div>
+        <span class="card-tag">HUM-01</span>
+      </div>
+      <div class="card-label">Humidity</div>
+      <div class="card-value" id="humVal">--<span class="card-unit">%</span></div>
+      <div class="progress-track">
+        <div class="progress-fill" id="humBar" style="width:0%"></div>
+      </div>
+    </div>
+
+    <!-- Pressure -->
+    <div class="card pressure-card" id="presCard">
+      <div class="card-header">
+        <div class="card-icon" style="background:rgba(167,139,250,0.1);border-color:rgba(167,139,250,0.35);">🌪️</div>
+        <span class="card-tag">PRES-01</span>
+      </div>
+      <div class="card-label">Pressure</div>
+      <div class="card-value" id="presVal" style="font-size:34px;">--<span class="card-unit">hPa</span></div>
+      <div class="card-status status-good" id="presStatus">— NORMAL</div>
+    </div>
+
+    <!-- Air Quality -->
+    <div class="card air-card" id="airCard">
+      <div class="card-header">
+        <div class="card-icon" style="background:var(--yellow-dim);border-color:rgba(250,204,21,0.35);">🌫️</div>
+        <span class="card-tag">AQI-01</span>
+      </div>
+      <div class="card-label">Air Quality</div>
+      <div class="card-value" id="airVal">--<span class="card-unit">%</span></div>
+      <div class="card-status status-good" id="airStatus">— GOOD</div>
+    </div>
+
+    <!-- Rain -->
+    <div class="card rain-card" id="rainCard">
+      <div class="card-header">
+        <div class="card-icon">🌧️</div>
+        <span class="card-tag">RAIN-01</span>
+      </div>
+      <div class="card-label">Rain Intensity</div>
+      <div class="card-value" id="rainVal">--<span class="card-unit">%</span></div>
+      <div class="card-status status-good" id="rainStatus">— NO RAIN</div>
+    </div>
+
+  </div><!-- /cards-grid -->
+
+  <!-- =============================================
+       BOTTOM SECTION
+  ============================================= -->
+  <div class="section-label">Analytics &amp; Visualization</div>
+
+  <div class="bottom-grid">
+
+    <!-- Line Chart -->
+    <div class="chart-panel">
+      <div class="panel-header">
+        <div class="panel-title">Temperature vs Humidity</div>
+        <div class="chart-legend">
+          <div class="legend-item">
+            <div class="legend-dot" style="background:#22c55e;"></div>
+            Temperature
+          </div>
+          <div class="legend-item">
+            <div class="legend-dot" style="background:#38bdf8;"></div>
+            Humidity
+          </div>
+        </div>
+      </div>
+      <div class="chart-wrap">
+        <canvas id="lineChart"></canvas>
+      </div>
+    </div>
+
+    <!-- Gauge Panel -->
+    <div class="gauge-panel">
+      <div class="panel-title" style="align-self:flex-start">Rain Intensity Gauge</div>
+
+      <div class="gauge-wrap">
+        <!-- SVG semi-circle gauge -->
+        <svg class="gauge-svg" viewBox="0 0 220 120" id="gaugeSvg">
+          <!-- Background arc track -->
+          <path id="gaugeTrack"
+            d="M 20 110 A 90 90 0 0 1 200 110"
+            fill="none" stroke="#1e293b" stroke-width="14"
+            stroke-linecap="round"/>
+
+          <!-- Color zones (visual reference arcs) -->
+          <!-- Green zone 0-40% -->
+          <path d="M 20 110 A 90 90 0 0 1 200 110"
+            fill="none" stroke="transparent" stroke-width="14" stroke-linecap="round"/>
+
+          <!-- Filled arc (dynamic) -->
+          <path id="gaugeFill"
+            d="M 20 110 A 90 90 0 0 1 200 110"
+            fill="none" stroke="#22c55e" stroke-width="14"
+            stroke-linecap="round"
+            stroke-dasharray="0 283"
+            style="transition: stroke-dasharray 0.7s cubic-bezier(0.34,1.2,0.64,1), stroke 0.5s;"/>
+
+          <!-- Needle -->
+          <g id="gaugeNeedle" transform="rotate(-90, 110, 110)" style="transition: transform 0.7s cubic-bezier(0.34,1.2,0.64,1);">
+            <line x1="110" y1="110" x2="110" y2="32"
+              stroke="#e2e8f0" stroke-width="2" stroke-linecap="round"/>
+            <circle cx="110" cy="110" r="5" fill="#1f2937" stroke="#e2e8f0" stroke-width="1.5"/>
+          </g>
+
+          <!-- Zone labels -->
+          <text x="15" y="130" fill="#22c55e" font-size="8" font-family="Space Mono" opacity="0.7">DRY</text>
+          <text x="88" y="22"  fill="#facc15" font-size="8" font-family="Space Mono" opacity="0.7" text-anchor="middle">LIGHT</text>
+          <text x="188" y="130" fill="#38bdf8" font-size="8" font-family="Space Mono" opacity="0.7" text-anchor="end">HEAVY</text>
+        </svg>
+
+        <div class="gauge-center-text">
+          <div class="gauge-percent" id="gaugePercent">0<span class="gauge-pct-unit">%</span></div>
+          <div class="gauge-sublabel">RAIN LEVEL</div>
+        </div>
+      </div>
+
+      <!-- Status display -->
+      <div class="gauge-status-row">
+        <span class="gauge-status-icon" id="gaugeIcon">☀️</span>
+        <span class="gauge-status-text" id="gaugeStatusText" style="color:var(--accent)">No Rain</span>
+      </div>
+
+      <!-- Mini stats -->
+      <div class="gauge-stats">
+        <div class="gauge-stat">
+          <div class="gauge-stat-val" id="rawRainVal">--</div>
+          <div class="gauge-stat-lbl">Raw ADC</div>
+        </div>
+        <div class="gauge-stat">
+          <div class="gauge-stat-val" id="rawAirVal">--</div>
+          <div class="gauge-stat-lbl">Air ADC</div>
+        </div>
+      </div>
+    </div><!-- /gauge-panel -->
+
+  </div><!-- /bottom-grid -->
+
+</main>
+
+<!-- =============================================
+     JAVASCRIPT
+============================================= -->
+<script>
+/* =============================================
+   CONFIGURATION
+============================================= */
+let API_URL = 'http://172.20.10.4:3000/api/data';
+const FETCH_INTERVAL_MS = 3000;
+const MAX_CHART_POINTS  = 20;
+
+/* =============================================
+   CHART.JS SETUP
+============================================= */
+const chartCtx = document.getElementById('lineChart').getContext('2d');
+const chartData = {
+  labels: [],
+  tempData: [],
+  humData:  []
+};
+
+const lineChart = new Chart(chartCtx, {
+  type: 'line',
+  data: {
+    labels: chartData.labels,
+    datasets: [
+      {
+        label: 'Temperature °C',
+        data: chartData.tempData,
+        borderColor: '#22c55e',
+        backgroundColor: 'rgba(34,197,94,0.07)',
+        borderWidth: 2,
+        pointRadius: 3,
+        pointBackgroundColor: '#22c55e',
+        pointBorderColor: '#0a0f1e',
+        pointBorderWidth: 1.5,
+        tension: 0.4,
+        fill: true
+      },
+      {
+        label: 'Humidity %',
+        data: chartData.humData,
+        borderColor: '#38bdf8',
+        backgroundColor: 'rgba(56,189,248,0.07)',
+        borderWidth: 2,
+        pointRadius: 3,
+        pointBackgroundColor: '#38bdf8',
+        pointBorderColor: '#0a0f1e',
+        pointBorderWidth: 1.5,
+        tension: 0.4,
+        fill: true
+      }
+    ]
+  },
+  options: {
+    responsive: true,
+    maintainAspectRatio: false,
+    animation: { duration: 400 },
+    plugins: {
+      legend: { display: false },
+      tooltip: {
+        backgroundColor: '#111d35',
+        borderColor: 'rgba(34,197,94,0.3)',
+        borderWidth: 1,
+        titleColor: '#64748b',
+        bodyColor: '#e2e8f0',
+        titleFont: { family: 'Space Mono', size: 10 },
+        bodyFont:  { family: 'Rajdhani', size: 13, weight: '600' },
+        padding: 10
+      }
+    },
+    scales: {
+      x: {
+        grid:   { color: 'rgba(34,197,94,0.05)', drawBorder: false },
+        ticks:  { color: '#334155', font: { family: 'Space Mono', size: 9 }, maxTicksLimit: 8 }
+      },
+      y: {
+        grid:   { color: 'rgba(34,197,94,0.05)', drawBorder: false },
+        ticks:  { color: '#334155', font: { family: 'Space Mono', size: 9 } },
+        beginAtZero: false
+      }
+    }
+  }
+});
+
+/* =============================================
+   CLOCK
+============================================= */
+function updateClock() {
+  const now  = new Date();
+  const time = now.toLocaleTimeString('en-US', { hour12: false });
+  const date = now.toLocaleDateString('en-US', { weekday:'short', month:'short', day:'numeric', year:'numeric' });
+  document.getElementById('clockTime').textContent = time;
+  document.getElementById('clockDate').textContent = date.toUpperCase();
+}
+setInterval(updateClock, 1000);
+updateClock();
+
+/* =============================================
+   SENSOR CONVERSIONS
+============================================= */
+function processData(raw) {
+  const temperature = parseFloat(raw.temperature);
+  const humidity    = parseFloat(raw.humidity);
+  const pressure    = parseFloat(raw.pressure) / 100;              // Pa → hPa
+  const airPercent  = (parseInt(raw.air) / 4095) * 100;            // 0–100%
+  const rainRaw     = parseInt(raw.rain);
+  const rainPercent = 100 - ((rainRaw / 4095) * 100);              // inverted
+
+  return { temperature, humidity, pressure, airPercent, rainPercent, rainRaw, airRaw: raw.air };
+}
+
+/* =============================================
+   STATUS HELPERS
+============================================= */
+function tempStatus(t) {
+  if (t < 15) return { text: 'COLD',   cls: 'status-blue' };
+  if (t < 30) return { text: 'NORMAL', cls: 'status-good' };
+  return              { text: 'HOT',   cls: 'status-poor' };
+}
+
+function airStatus(a) {
+  if (a <= 30) return { text: 'GOOD',     cls: 'status-good' };
+  if (a <= 70) return { text: 'MODERATE', cls: 'status-moderate' };
+  return              { text: 'POOR',     cls: 'status-poor' };
+}
+
+function rainStatus(rainRaw, rainPct) {
+  // Based on raw ADC value as specified
+  if (rainRaw >= 3000) return { text: 'No Rain',    icon: '☀️', color: '#22c55e', cls: 'status-good' };
+  if (rainRaw >= 1500) return { text: 'Light Rain', icon: '🌦️', color: '#facc15', cls: 'status-moderate' };
+  return                      { text: 'Heavy Rain', icon: '🌧️', color: '#38bdf8', cls: 'status-blue' };
+}
+
+function presStatus(p) {
+  if (p < 980)  return { text: 'LOW',    cls: 'status-moderate' };
+  if (p < 1020) return { text: 'NORMAL', cls: 'status-good' };
+  return               { text: 'HIGH',   cls: 'status-poor' };
+}
+
+/* =============================================
+   ANIMATE VALUE CHANGE
+============================================= */
+function animateEl(el) {
+  el.classList.remove('val-update');
+  void el.offsetWidth; // reflow trick
+  el.classList.add('val-update');
+}
+
+/* =============================================
+   UPDATE UI
+============================================= */
+function updateUI(d) {
+  const now = new Date().toLocaleTimeString('en-US', { hour12: false, hour:'2-digit', minute:'2-digit', second:'2-digit' });
+
+  /* -- Temperature -- */
+  const tEl  = document.getElementById('tempVal');
+  const tSEl = document.getElementById('tempStatus');
+  tEl.innerHTML = `${d.temperature.toFixed(1)}<span class="card-unit">°C</span>`;
+  animateEl(tEl);
+  const tS = tempStatus(d.temperature);
+  tSEl.textContent = `— ${tS.text}`;
+  tSEl.className = `card-status ${tS.cls}`;
+
+  /* -- Humidity -- */
+  const hEl = document.getElementById('humVal');
+  hEl.innerHTML = `${d.humidity.toFixed(1)}<span class="card-unit">%</span>`;
+  animateEl(hEl);
+  document.getElementById('humBar').style.width = `${Math.min(100, d.humidity)}%`;
+
+  /* -- Pressure -- */
+  const pEl = document.getElementById('presVal');
+  pEl.innerHTML = `${d.pressure.toFixed(1)}<span class="card-unit">hPa</span>`;
+  animateEl(pEl);
+  const pS = presStatus(d.pressure);
+  const pSEl = document.getElementById('presStatus');
+  pSEl.textContent = `— ${pS.text}`;
+  pSEl.className = `card-status ${pS.cls}`;
+
+  /* -- Air Quality -- */
+  const aEl  = document.getElementById('airVal');
+  const aSEl = document.getElementById('airStatus');
+  aEl.innerHTML = `${d.airPercent.toFixed(1)}<span class="card-unit">%</span>`;
+  animateEl(aEl);
+  const aS = airStatus(d.airPercent);
+  aSEl.textContent = `— ${aS.text}`;
+  aSEl.className = `card-status ${aS.cls}`;
+
+  /* -- Rain card -- */
+  const rEl  = document.getElementById('rainVal');
+  const rSEl = document.getElementById('rainStatus');
+  const rS   = rainStatus(d.rainRaw, d.rainPercent);
+  rEl.innerHTML = `${d.rainPercent.toFixed(1)}<span class="card-unit">%</span>`;
+  animateEl(rEl);
+  rSEl.textContent = `— ${rS.text.toUpperCase()}`;
+  rSEl.className = `card-status ${rS.cls}`;
+
+  /* -- Gauge -- */
+  updateGauge(d.rainPercent, d.rainRaw);
+
+  /* -- Raw values -- */
+  document.getElementById('rawRainVal').textContent = d.rainRaw;
+  document.getElementById('rawAirVal').textContent  = d.airRaw;
+
+  /* -- Chart -- */
+  chartData.labels.push(now);
+  chartData.tempData.push(parseFloat(d.temperature.toFixed(2)));
+  chartData.humData.push(parseFloat(d.humidity.toFixed(2)));
+  if (chartData.labels.length > MAX_CHART_POINTS) {
+    chartData.labels.shift();
+    chartData.tempData.shift();
+    chartData.humData.shift();
+  }
+  lineChart.update();
+}
+
+/* =============================================
+   GAUGE UPDATE
+============================================= */
+function updateGauge(pct, rawVal) {
+  pct = Math.max(0, Math.min(100, pct));
+  const ARC_LENGTH = 283; // approximate arc px for the 90,90 radius semi-circle
+  const filled = (pct / 100) * ARC_LENGTH;
+
+  const rS    = rainStatus(rawVal, pct);
+  const fill  = document.getElementById('gaugeFill');
+  const needle = document.getElementById('gaugeNeedle');
+
+  // Needle sweeps from -90° (left/dry) to +90° (right/heavy)
+  const angle = -90 + (pct / 100) * 180;
+  needle.setAttribute('transform', `rotate(${angle}, 110, 110)`);
+
+  fill.setAttribute('stroke-dasharray', `${filled} ${ARC_LENGTH}`);
+  fill.setAttribute('stroke', rS.color);
+
+  document.getElementById('gaugePercent').innerHTML = `${pct.toFixed(1)}<span class="gauge-pct-unit">%</span>`;
+  document.getElementById('gaugePercent').style.color = rS.color;
+  document.getElementById('gaugeIcon').textContent    = rS.icon;
+  document.getElementById('gaugeStatusText').textContent = rS.text;
+  document.getElementById('gaugeStatusText').style.color = rS.color;
+}
+
+/* =============================================
+   CONNECTION STATUS
+============================================= */
+function setConnected(state) {
+  const pill  = document.getElementById('connPill');
+  const label = document.getElementById('connLabel');
+  if (state) {
+    pill.className  = 'conn-pill connected';
+    label.textContent = 'LIVE';
+  } else {
+    pill.className  = 'conn-pill disconnected';
+    label.textContent = 'OFFLINE';
+  }
+}
+
+/* =============================================
+   DATA FETCH LOOP
+============================================= */
+async function fetchData() {
+  try {
+    console.log("📡 Fetching from:", API_URL);
+
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 4000);
+
+    const resp = await fetch(API_URL, { signal: controller.signal });
+    clearTimeout(timeout);
+
+    if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+
+    const raw = await resp.json();
+
+    console.log("📊 Data:", raw);
+
+    const data = processData(raw);
+
+    setConnected(true);
+    updateUI(data);
+
+  } catch (err) {
+    setConnected(false);
+    console.warn("❌ Fetch failed:", err.message);
+  }
+}
+/* =============================================
+   DEMO MODE (fake data for preview)
+============================================= */
+let demoTimer = null;
+let demoTick  = 0;
+
+function loadDemo() {
+  clearInterval(demoTimer);
+  setConnected(true);
+  demoTick = 0;
+
+  function demoStep() {
+    demoTick++;
+    const t = 22 + 8 * Math.sin(demoTick * 0.18);
+    const h = 55 + 20 * Math.cos(demoTick * 0.12);
+    const p = 101325 + 500 * Math.sin(demoTick * 0.07);
+    // Cycle rain through all 3 zones for demo
+    let rain;
+    const phase = demoTick % 60;
+    if (phase < 20) rain = 3500;          // No rain
+    else if (phase < 40) rain = 2000;     // Light rain
+    else rain = 800;                      // Heavy rain
+
+    const air  = Math.round(1000 + 1000 * Math.abs(Math.sin(demoTick * 0.09)));
+    const raw  = { temperature: t, humidity: h, pressure: p, air, rain };
+    const data = processData(raw);
+    updateUI(data);
+  }
+
+  demoStep();
+  demoTimer = setInterval(demoStep, FETCH_INTERVAL_MS);
+}
+
+/* =============================================
+   APPLY NEW ENDPOINT
+============================================= */
+function applyEndpoint() {
+  const input = document.getElementById('apiInput').value.trim();
+
+  if (!input || !input.startsWith("http")) {
+    alert("❌ Invalid API URL!\nUse: http://172.20.X.X:3000/api/data");
+    return;
+  }
+
+  console.log("🔄 Applying new API:", input);
+
+  // Stop demo mode if active
+  if (demoTimer) {
+    clearInterval(demoTimer);
+    demoTimer = null;
+  }
+
+  // Update API
+  API_URL = input;
+
+  // Reset connection status
+  setConnected(false);
+  document.getElementById('connLabel').textContent = "CONNECTING...";
+
+  // Restart polling cleanly
+  if (liveTimer) clearInterval(liveTimer);
+
+  fetchData(); // immediate call
+
+  liveTimer = setInterval(fetchData, FETCH_INTERVAL_MS);
+}
+
+/* =============================================
+   START POLLING
+============================================= */
+let liveTimer = setInterval(fetchData, FETCH_INTERVAL_MS);
+fetchData();
+</script>
+</body>
+</html>
+
+                                                                                                                                                                                                                          
